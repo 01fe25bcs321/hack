@@ -81,25 +81,37 @@ if defined OLLAMA_EXE (
 
 echo [4/4] Starting DocFusion AI...
 echo.
+echo Waiting for backend to start...
+
+start "DocFusion AI Backend" /B ".venv\Scripts\python.exe" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+
+set "ATTEMPTS=0"
+
+:wait_for_backend
+timeout /t 2 /nobreak >nul
+curl -s --max-time 2 http://127.0.0.1:8000 >nul 2>nul
+
+if not errorlevel 1 goto backend_ready
+
+set /a ATTEMPTS+=1
+if !ATTEMPTS! GEQ 30 goto backend_error
+goto wait_for_backend
+
+:backend_ready
+echo.
+echo Backend is ready.
 echo Opening http://127.0.0.1:8000
-start "" http://127.0.0.1:8000
+start "" "http://127.0.0.1:8000"
 
 echo.
 echo DocFusion AI is running.
-echo Close this window to stop the server.
-echo.
-".venv\Scripts\python.exe" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+echo Close this window to stop the launcher.
+pause
+exit /b 0
 
-if errorlevel 1 (
-  echo.
-  echo DocFusion stopped because the server returned an error.
-  pause
-)
-exit /b
-
-:pip_error
+:backend_error
 echo.
-echo ERROR: Dependency installation failed.
-echo Check your internet connection and run start.bat again.
+echo ERROR: Backend did not respond within 60 seconds.
+echo Check the Python dependencies and backend errors.
 pause
 exit /b 1
